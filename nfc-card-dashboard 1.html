@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NFC Card — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F6F4EF;
+    --paper-surface:#FFFFFF;
+    --paper-line:#E4E0D6;
+    --text:#1B1D22;
+    --text-dim:#6B6F78;
+    --accent:#00D8A0;
+    --radius:16px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--paper);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;}
+  .display{font-family:'Space Grotesk','Inter',sans-serif;}
+
+  .app-shell{max-width:1160px;margin:0 auto;padding:28px 20px 60px;}
+
+  .top-tabs{display:flex;gap:6px;background:var(--paper-surface);border:1px solid var(--paper-line);
+    padding:5px;border-radius:999px;width:fit-content;margin:0 auto 32px;}
+  .top-tabs button{border:none;background:transparent;padding:9px 22px;border-radius:999px;
+    font-family:inherit;font-size:14.5px;font-weight:600;color:var(--text-dim);cursor:pointer;
+    transition:background .18s ease,color .18s ease;}
+  .top-tabs button.active{background:#12141A;color:#fff;}
+
+  .view{display:none;}
+  #view-card.active{display:flex;justify-content:center;}
+  #view-dash.active{display:grid;grid-template-columns:1fr 360px;gap:26px;align-items:start;}
+  @media(max-width:860px){#view-dash.active{grid-template-columns:1fr;}}
+
+  /* ---------- FORM PANELS ---------- */
+  .panel{background:var(--paper-surface);border:1px solid var(--paper-line);border-radius:var(--radius);
+    padding:22px 24px;margin-bottom:18px;}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+  .panel h3{font-family:'Space Grotesk';font-size:16px;margin:0 0 3px;}
+  .panel .hint{font-size:13px;color:var(--text-dim);margin:0 0 18px;}
+
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:13px;font-weight:600;color:var(--text-dim);margin-bottom:6px;}
+  .field input,.field textarea,.field select{width:100%;border:1px solid var(--paper-line);border-radius:10px;
+    padding:11px 13px;font-family:inherit;font-size:14.5px;color:var(--text);background:#FCFBF9;}
+  .field input:focus,.field textarea:focus,.field select:focus{outline:2px solid var(--accent);outline-offset:1px;}
+  .field textarea{resize:vertical;min-height:78px;line-height:1.6;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media(max-width:520px){.two-col{grid-template-columns:1fr;}}
+
+  /* theme controls */
+  .theme-row{display:flex;gap:18px;align-items:center;flex-wrap:wrap;}
+  .swatch-input{display:flex;align-items:center;gap:10px;}
+  .swatch-input input[type=color]{width:44px;height:44px;border:1px solid var(--paper-line);border-radius:10px;
+    padding:2px;background:#FCFBF9;cursor:pointer;}
+  .mode-toggle{display:flex;border:1px solid var(--paper-line);border-radius:10px;overflow:hidden;}
+  .mode-toggle button{border:none;background:#FCFBF9;padding:10px 16px;font-family:inherit;font-size:13.5px;
+    font-weight:600;color:var(--text-dim);cursor:pointer;}
+  .mode-toggle button.active{background:#12141A;color:#fff;}
+  .preset-swatches{display:flex;gap:8px;}
+  .preset-swatch{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;}
+  .preset-swatch.selected{border-color:#12141A;}
+
+  /* dynamic link rows */
+  .link-row{display:grid;grid-template-columns:1fr 1.4fr auto;gap:8px;margin-bottom:10px;align-items:center;}
+  @media(max-width:520px){.link-row{grid-template-columns:1fr;}}
+  .link-row input{width:100%;border:1px solid var(--paper-line);border-radius:10px;padding:10px 12px;
+    font-family:inherit;font-size:14px;background:#FCFBF9;}
+  .icon-btn{border:1px solid var(--paper-line);background:#FCFBF9;border-radius:10px;padding:10px 12px;
+    cursor:pointer;font-size:13px;color:#B3403A;font-weight:600;}
+  .add-link-btn{border:1px dashed var(--paper-line);background:transparent;border-radius:10px;
+    padding:11px;width:100%;font-family:inherit;font-size:13.5px;font-weight:600;color:var(--text-dim);cursor:pointer;}
+  .add-link-btn:hover{border-color:#12141A;color:#12141A;}
+
+  .save-bar{display:flex;align-items:center;gap:12px;position:sticky;bottom:16px;}
+  .btn-primary{background:#12141A;color:#fff;border:none;padding:13px 26px;border-radius:12px;
+    font-family:inherit;font-size:14.5px;font-weight:700;cursor:pointer;}
+  .btn-primary:disabled{opacity:.6;cursor:default;}
+  .status-msg{font-size:13.5px;color:var(--text-dim);}
+  .status-msg.ok{color:#0E8F63;font-weight:600;}
+
+  .preview-wrap{position:sticky;top:20px;}
+  .preview-label{font-size:12.5px;font-weight:600;color:var(--text-dim);margin-bottom:10px;}
+  .preview-shell{transform:scale(0.86);transform-origin:top center;}
+
+  /* ---------- CARD (rendered, theme-driven) ---------- */
+  .phone-frame{width:100%;max-width:400px;border-radius:28px;padding:36px 26px 30px;position:relative;
+    overflow:hidden;box-shadow:0 30px 60px -20px rgba(18,20,26,0.35);}
+  .phone-frame.mode-dark{background:#12141A;color:#fff;}
+  .phone-frame.mode-light{background:#FFFFFF;color:#1B1D22;border:1px solid #E4E0D6;}
+
+  .signal-row{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;margin-bottom:28px;
+    opacity:0;animation:fadein .5s ease forwards .15s;}
+  .signal-dot{width:7px;height:7px;border-radius:50%;animation:pulse 1.8s ease-out 1;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(0,0,0,0.35);}100%{box-shadow:0 0 0 14px rgba(0,0,0,0);}}
+  @keyframes fadein{to{opacity:1;}}
+
+  .avatar{width:76px;height:76px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-family:'Space Grotesk';font-size:26px;font-weight:600;margin-bottom:18px;background-size:cover;
+    background-position:center;}
+  .id-name{font-size:26px;font-weight:700;line-height:1.25;margin:0 0 4px;font-family:'Space Grotesk',sans-serif;}
+  .id-role{font-size:15px;margin:0 0 22px;opacity:.65;}
+  .id-bio{font-size:14.5px;line-height:1.7;margin:0 0 26px;opacity:.85;}
+
+  .contact-list{display:flex;flex-direction:column;gap:10px;margin-bottom:20px;}
+  .contact-row{display:flex;align-items:center;justify-content:space-between;gap:10px;border-radius:12px;
+    padding:13px 16px;text-decoration:none;}
+  .phone-frame.mode-dark .contact-row{background:#1C1F27;border:1px solid rgba(255,255,255,0.09);color:#fff;}
+  .phone-frame.mode-light .contact-row{background:#F6F4EF;border:1px solid #E4E0D6;color:#1B1D22;}
+  .contact-row .label{font-size:12px;opacity:.6;}
+  .contact-row .value{font-size:14.5px;font-weight:600;}
+  .contact-row .cr-left{display:flex;flex-direction:column;gap:2px;}
+  .contact-row .go{font-size:13px;font-weight:600;}
+
+  .social-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px;}
+  .social-pill{padding:8px 14px;border-radius:999px;font-size:13px;font-weight:500;text-decoration:none;}
+  .phone-frame.mode-dark .social-pill{border:1px solid rgba(255,255,255,0.09);color:#fff;}
+  .phone-frame.mode-light .social-pill{border:1px solid #E4E0D6;color:#1B1D22;}
+
+  .save-btn{display:block;width:100%;text-align:center;color:#12141A;border:none;padding:15px;border-radius:12px;
+    font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;}
+  .empty-note{opacity:.6;font-size:13.5px;line-height:1.8;text-align:center;padding:30px 6px;}
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <div class="top-tabs">
+    <button id="tab-dash" class="active">Dashboard</button>
+    <button id="tab-card">Card Preview</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="view-dash" class="view active">
+    <div>
+      <div class="panel">
+        <h3>Basic info</h3>
+        <p class="hint">This is what appears the moment someone taps your card.</p>
+        <div class="field"><label>Full name</label><input id="f-name" placeholder="e.g. Ahmed Mahmoud"></div>
+        <div class="two-col">
+          <div class="field"><label>Job title</label><input id="f-title" placeholder="e.g. Graphic Designer"></div>
+          <div class="field"><label>Company (optional)</label><input id="f-company" placeholder="e.g. Freelance"></div>
+        </div>
+        <div class="field"><label>Short bio</label><textarea id="f-bio" placeholder="A line or two about what you do"></textarea></div>
+        <div class="field"><label>Avatar image URL (optional)</label><input id="f-avatar" placeholder="https://... — leave empty to use initials"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Contact</h3>
+        <p class="hint">Shown as quick-action rows on the card.</p>
+        <div class="two-col">
+          <div class="field"><label>Phone</label><input id="f-phone" placeholder="+20 1xxxxxxxxx"></div>
+          <div class="field"><label>WhatsApp (if different)</label><input id="f-whatsapp" placeholder="+20 1xxxxxxxxx"></div>
+        </div>
+        <div class="two-col">
+          <div class="field"><label>Email</label><input id="f-email" placeholder="name@example.com"></div>
+          <div class="field"><label>Website</label><input id="f-website" placeholder="https://..."></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Custom links</h3>
+        <p class="hint">Add anything — portfolio, LinkedIn, Instagram, booking page, menu, whatever fits.</p>
+        <div id="links-container"></div>
+        <button class="add-link-btn" id="btn-add-link">+ Add link</button>
+      </div>
+
+      <div class="panel">
+        <h3>Appearance</h3>
+        <p class="hint">Customize how your card looks — this is fully yours.</p>
+        <div class="theme-row" style="margin-bottom:16px;">
+          <div>
+            <label style="display:block;font-size:13px;font-weight:600;color:var(--text-dim);margin-bottom:8px;">Card style</label>
+            <div class="mode-toggle">
+              <button id="mode-dark" class="active">Dark</button>
+              <button id="mode-light">Light</button>
+            </div>
+          </div>
+          <div>
+            <label style="display:block;font-size:13px;font-weight:600;color:var(--text-dim);margin-bottom:8px;">Accent color</label>
+            <div class="swatch-input">
+              <input type="color" id="f-accent" value="#00D8A0">
+              <div class="preset-swatches" id="preset-swatches"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="save-bar">
+        <button class="btn-primary" id="btn-save">Save changes</button>
+        <span class="status-msg" id="save-status"></span>
+      </div>
+    </div>
+
+    <div class="preview-wrap">
+      <div class="preview-label">Live preview</div>
+      <div class="preview-shell"><div class="phone-frame mode-dark" id="preview-card"></div></div>
+    </div>
+  </div>
+
+  <!-- PUBLIC CARD -->
+  <div id="view-card" class="view">
+    <div class="phone-frame mode-dark" id="full-card"></div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'profile:main';
+const PRESET_COLORS = ['#00D8A0','#2954A6','#C98A3E','#B3403A','#8A5CF6','#F2B705'];
+
+const defaults = {
+  name:'', title:'', company:'', bio:'', avatar:'',
+  phone:'', whatsapp:'', email:'', website:'',
+  theme:{ mode:'dark', accent:'#00D8A0' },
+  links:[]
+};
+let profile = JSON.parse(JSON.stringify(defaults));
+
+const basicFields = ['name','title','company','bio','avatar','phone','whatsapp','email','website'];
+
+function uid(){ return 'l' + Math.random().toString(36).slice(2,9); }
+
+function initials(name){
+  if(!name || !name.trim()) return '?';
+  const parts = name.trim().split(/\s+/);
+  return (parts.length > 1 ? (parts[0][0] + parts[1][0]) : parts[0].slice(0,2)).toUpperCase();
+}
+
+function escapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function buildVCard(p){
+  const lines = ['BEGIN:VCARD','VERSION:3.0'];
+  lines.push('FN:' + (p.name || ''));
+  if(p.company) lines.push('ORG:' + p.company);
+  if(p.title) lines.push('TITLE:' + p.title);
+  if(p.phone) lines.push('TEL;TYPE=CELL:' + p.phone);
+  if(p.email) lines.push('EMAIL:' + p.email);
+  if(p.website) lines.push('URL:' + p.website);
+  if(p.bio) lines.push('NOTE:' + p.bio.replace(/\n/g,' '));
+  lines.push('END:VCARD');
+  return lines.join('\n');
+}
+
+function downloadVCard(){
+  const blob = new Blob([buildVCard(profile)], {type:'text/vcard'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (profile.name || 'contact').trim().replace(/\s+/g,'_') + '.vcf';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function renderCard(p, container){
+  const hasAnyContact = p.phone || p.whatsapp || p.email || p.website;
+  const validLinks = (p.links||[]).filter(l => l.label && l.url);
+
+  container.className = 'phone-frame ' + (p.theme.mode === 'light' ? 'mode-light' : 'mode-dark');
+
+  if(!p.name && !p.title && !hasAnyContact && validLinks.length === 0){
+    container.innerHTML = `<div class="empty-note">No data yet.<br>Fill in your details on the left to see your card here.</div>`;
+    return;
+  }
+
+  const accent = p.theme.accent || '#00D8A0';
+
+  let contactRows = '';
+  if(p.phone) contactRows += `<a class="contact-row" href="tel:${escapeHtml(p.phone)}"><span class="cr-left"><span class="label">Phone</span><span class="value">${escapeHtml(p.phone)}</span></span><span class="go" style="color:${accent}">Call</span></a>`;
+  if(p.whatsapp) contactRows += `<a class="contact-row" href="https://wa.me/${escapeHtml(p.whatsapp.replace(/[^0-9]/g,''))}" target="_blank"><span class="cr-left"><span class="label">WhatsApp</span><span class="value">${escapeHtml(p.whatsapp)}</span></span><span class="go" style="color:${accent}">Message</span></a>`;
+  if(p.email) contactRows += `<a class="contact-row" href="mailto:${escapeHtml(p.email)}"><span class="cr-left"><span class="label">Email</span><span class="value">${escapeHtml(p.email)}</span></span><span class="go" style="color:${accent}">Send</span></a>`;
+  if(p.website) contactRows += `<a class="contact-row" href="${escapeHtml(p.website)}" target="_blank"><span class="cr-left"><span class="label">Website</span><span class="value">${escapeHtml(p.website.replace(/^https?:\/\//,''))}</span></span><span class="go" style="color:${accent}">Open</span></a>`;
+
+  let linkPills = '';
+  validLinks.forEach(l => {
+    linkPills += `<a class="social-pill" href="${escapeHtml(l.url)}" target="_blank">${escapeHtml(l.label)}</a>`;
+  });
+
+  const avatarInner = p.avatar
+    ? `style="background-image:url('${escapeHtml(p.avatar)}');color:transparent;"`
+    : `style="background:${accent}22;color:${accent};"`;
+
+  container.innerHTML = `
+    <div class="signal-row" style="color:${accent}"><span class="signal-dot" style="background:${accent}"></span><span>Connected via NFC</span></div>
+    <div class="avatar" ${avatarInner}>${p.avatar ? '' : initials(p.name)}</div>
+    <h1 class="id-name">${escapeHtml(p.name) || 'No name yet'}</h1>
+    <p class="id-role">${[p.title, p.company].filter(Boolean).map(escapeHtml).join(' · ')}</p>
+    ${p.bio ? `<p class="id-bio">${escapeHtml(p.bio)}</p>` : ''}
+    ${contactRows ? `<div class="contact-list">${contactRows}</div>` : ''}
+    ${linkPills ? `<div class="social-row">${linkPills}</div>` : ''}
+    <button class="save-btn" style="background:${accent}" data-action="save-vcard">Save to contacts</button>
+  `;
+
+  const btn = container.querySelector('[data-action="save-vcard"]');
+  if(btn) btn.addEventListener('click', downloadVCard);
+}
+
+function renderAll(){
+  renderCard(profile, document.getElementById('preview-card'));
+  renderCard(profile, document.getElementById('full-card'));
+}
+
+function renderLinkRows(){
+  const wrap = document.getElementById('links-container');
+  wrap.innerHTML = '';
+  profile.links.forEach(link => {
+    const row = document.createElement('div');
+    row.className = 'link-row';
+    row.innerHTML = `
+      <input placeholder="Label (e.g. Portfolio)" value="${escapeHtml(link.label)}" data-id="${link.id}" data-field="label">
+      <input placeholder="https://..." value="${escapeHtml(link.url)}" data-id="${link.id}" data-field="url">
+      <button class="icon-btn" data-id="${link.id}" data-action="remove">Remove</button>
+    `;
+    wrap.appendChild(row);
+  });
+  wrap.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const link = profile.links.find(l => l.id === inp.dataset.id);
+      if(link) link[inp.dataset.field] = inp.value;
+      renderCard(profile, document.getElementById('preview-card'));
+    });
+  });
+  wrap.querySelectorAll('[data-action="remove"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      profile.links = profile.links.filter(l => l.id !== btn.dataset.id);
+      renderLinkRows();
+      renderCard(profile, document.getElementById('preview-card'));
+    });
+  });
+}
+
+function renderPresetSwatches(){
+  const wrap = document.getElementById('preset-swatches');
+  wrap.innerHTML = '';
+  PRESET_COLORS.forEach(color => {
+    const sw = document.createElement('div');
+    sw.className = 'preset-swatch' + (profile.theme.accent.toLowerCase() === color.toLowerCase() ? ' selected' : '');
+    sw.style.background = color;
+    sw.addEventListener('click', () => {
+      profile.theme.accent = color;
+      document.getElementById('f-accent').value = color;
+      renderPresetSwatches();
+      renderCard(profile, document.getElementById('preview-card'));
+    });
+    wrap.appendChild(sw);
+  });
+}
+
+function loadFormFromProfile(){
+  basicFields.forEach(f => {
+    const el = document.getElementById('f-' + f);
+    if(el) el.value = profile[f] || '';
+  });
+  document.getElementById('f-accent').value = profile.theme.accent;
+  setMode(profile.theme.mode, false);
+  renderLinkRows();
+  renderPresetSwatches();
+}
+
+function bindFormEvents(){
+  basicFields.forEach(f => {
+    const el = document.getElementById('f-' + f);
+    if(!el) return;
+    el.addEventListener('input', () => {
+      profile[f] = el.value;
+      renderCard(profile, document.getElementById('preview-card'));
+    });
+  });
+  document.getElementById('f-accent').addEventListener('input', (e) => {
+    profile.theme.accent = e.target.value;
+    renderPresetSwatches();
+    renderCard(profile, document.getElementById('preview-card'));
+  });
+}
+
+function setMode(mode, rerender=true){
+  profile.theme.mode = mode;
+  document.getElementById('mode-dark').classList.toggle('active', mode==='dark');
+  document.getElementById('mode-light').classList.toggle('active', mode==='light');
+  if(rerender) renderCard(profile, document.getElementById('preview-card'));
+}
+
+document.getElementById('mode-dark').addEventListener('click', () => setMode('dark'));
+document.getElementById('mode-light').addEventListener('click', () => setMode('light'));
+
+document.getElementById('btn-add-link').addEventListener('click', () => {
+  profile.links.push({ id: uid(), label:'', url:'' });
+  renderLinkRows();
+});
+
+async function loadProfile(){
+  try{
+    const result = await window.storage.get(STORAGE_KEY, false);
+    if(result && result.value){
+      const saved = JSON.parse(result.value);
+      profile = { ...defaults, ...saved, theme:{...defaults.theme, ...(saved.theme||{})}, links: saved.links || [] };
+    }
+  }catch(e){
+    // no saved data yet, keep defaults
+  }
+  loadFormFromProfile();
+  renderAll();
+}
+
+async function saveProfile(){
+  const btn = document.getElementById('btn-save');
+  const status = document.getElementById('save-status');
+  btn.disabled = true;
+  status.textContent = 'Saving...';
+  status.classList.remove('ok');
+  try{
+    await window.storage.set(STORAGE_KEY, JSON.stringify(profile), false);
+    status.textContent = 'Saved ✓';
+    status.classList.add('ok');
+    renderCard(profile, document.getElementById('full-card'));
+  }catch(e){
+    status.textContent = 'Something went wrong. Try again.';
+  }finally{
+    btn.disabled = false;
+    setTimeout(() => { status.textContent=''; status.classList.remove('ok'); }, 2500);
+  }
+}
+
+function bindTabs(){
+  const tabDash = document.getElementById('tab-dash');
+  const tabCard = document.getElementById('tab-card');
+  const viewDash = document.getElementById('view-dash');
+  const viewCard = document.getElementById('view-card');
+  tabDash.addEventListener('click', () => {
+    tabDash.classList.add('active'); tabCard.classList.remove('active');
+    viewDash.classList.add('active'); viewCard.classList.remove('active');
+  });
+  tabCard.addEventListener('click', () => {
+    tabCard.classList.add('active'); tabDash.classList.remove('active');
+    viewCard.classList.add('active'); viewDash.classList.remove('active');
+    renderCard(profile, document.getElementById('full-card'));
+  });
+}
+
+document.getElementById('btn-save').addEventListener('click', saveProfile);
+bindFormEvents();
+bindTabs();
+loadProfile();
+</script>
+</body>
+</html>
